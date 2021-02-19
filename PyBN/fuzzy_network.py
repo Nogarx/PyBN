@@ -1,7 +1,8 @@
 import numpy as np
+from PyBN.abstract_network import AbstractNetwork
 from PyBN import functions
 
-class FuzzyBooleanNetwork():
+class FuzzyBooleanNetwork(AbstractNetwork):
     
     def __init__(self, n, b, graph):
         """
