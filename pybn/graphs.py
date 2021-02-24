@@ -2,11 +2,15 @@ import numpy as np
 from math import ceil
 from operator import itemgetter 
 
-def create_uniform_graph(n, k):
+def create_uniform_graph(n, k, seed=None):
     """
     Input: n (nodes), k (average connectivity).
     Output: list of adjacency representing a graph with n nodes and average connectivity k.
     """
+
+    # Seed for reproducibility.
+    if seed is not None:
+        np.random.seed(seed)
 
     # Required number of edges to get average connectivity.
     number_edges = ceil(n * k)
@@ -20,6 +24,10 @@ def create_uniform_graph(n, k):
     edges_list = np.random.choice(indices, size=number_edges, replace=False)
 
     # Get edges and sort them.
-    adjacency_list = list(itemgetter(*edges_list)(edges))
-    adjacency_list = sorted(adjacency_list)
+    if len(edges_list) > 0:
+        adjacency_list = list(itemgetter(*edges_list)(edges))
+        adjacency_list = sorted(adjacency_list)
+    else:
+        adjacency_list = []
+        
     return adjacency_list
