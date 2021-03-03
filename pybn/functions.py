@@ -4,6 +4,10 @@ import os
 import numpy as np
 import random 
 
+####################################################################################################
+####################################################################################################
+####################################################################################################
+
 def state_to_index(valuation, base): 
     """
     Maps states to an decimal integers.
@@ -14,6 +18,35 @@ def state_to_index(valuation, base):
         integer += factor * valuation[i]
         factor *= base
     return integer
+
+####################################################################################################
+####################################################################################################
+####################################################################################################
+
+def get_fuzzy_lambdas(conjunction, disjunction, negation):
+    fuzzy_lambdas_probabilities = [17/84,4/84,4/84,4/84,4/84,4/84,4/84,4/84,4/84,4/84,4/84,4/84,4/84,1/84,1/84,17/84]
+    fuzzy_lambdas = [
+        lambda x, y : 1,
+        lambda x, y : disjunction(x,y),
+        lambda x, y : disjunction(x,negation(y)),
+        lambda x, y : disjunction(negation(x),y),
+        lambda x, y : disjunction(negation(x),negation(y)),
+        lambda x, y : conjunction(x,y),
+        lambda x, y : conjunction(x,negation(y)),
+        lambda x, y : conjunction(negation(x),y),
+        lambda x, y : conjunction(negation(x),negation(y)),
+        lambda x, y : x,
+        lambda x, y : negation(x),
+        lambda x, y : y,
+        lambda x, y : negation(y),
+        lambda x, y : disjunction(conjunction(x,y),conjunction(negation(x),negation(y))),
+        lambda x, y : conjunction(conjunction(x,negation(y)),conjunction(negation(x),y)),
+        lambda x, y : 0]
+    return fuzzy_lambdas_probabilities, fuzzy_lambdas
+
+####################################################################################################
+####################################################################################################
+####################################################################################################
 
 def timestamp(fmt='%y%m%dT%H%M%S'):
     """
@@ -42,10 +75,9 @@ def execution_to_file(data, k, x, path):
             execution_file.write(string_state + '\n')
     execution_file.close()
 
-
-
-
-######################################################################
+####################################################################################################
+####################################################################################################
+####################################################################################################
 
 def index(arr=np.array,b=np.uint8): # B**N == index((B-1)*e,b=B)+1
     m = arr.shape[0]
