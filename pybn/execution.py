@@ -1,5 +1,6 @@
 import numpy as np
 import json
+from tqdm import tqdm
 from joblib import Parallel, delayed
 from pybn.functions import execution_to_file
 from pybn.abstract_network import AbstractNetwork
@@ -74,7 +75,7 @@ def parallel_execution(configuration):
         raise Exception("graph is not a valid PyBN graph function.")
 
     # Iterate through all requested connectivity values.
-    for k in np.arange(k_start, k_end, k_step):
+    for k in tqdm(np.arange(k_start, k_end, k_step)):
         graph = graph_function(nodes, k, seed=graph_seed) if (graph_seed is not None) else None
         Parallel(n_jobs=jobs)( delayed(network_execution)(k, configuration, x, graph) for x in range(repetitions) ) 
 
@@ -89,6 +90,7 @@ def new_configuration():
     """
     configuration = {
         'network': {'class': None, 'nodes': 0, 'basis': 0, 'bias': 0.5, 'seed': None},
+        'fuzzy': {'conjunction': lambda x,y : min(x,y), 'disjunction': lambda x,y : max(x,y), 'negation': lambda x : 1 - x},
         'graph': {'function': None, 'k_start': 0, 'k_end': 0, 'k_step': 0, 'seed': None},
         'execution': {'networks': 0, 'runs': 0, 'steps': 0, 'transient': 0, 'jobs': 1},
         'storage_path' : './'
