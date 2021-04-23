@@ -1,6 +1,3 @@
-import datetime
-import time
-import os
 import numpy as np
 import random 
 
@@ -43,37 +40,6 @@ def get_fuzzy_lambdas(conjunction, disjunction, negation):
         lambda x, y : conjunction(conjunction(x,negation(y)),conjunction(negation(x),y)),
         lambda x, y : 0]
     return fuzzy_lambdas_probabilities, fuzzy_lambdas
-
-####################################################################################################
-####################################################################################################
-####################################################################################################
-
-def timestamp(fmt='%y%m%dT%H%M%S'):
-    """
-    Returns current timestamp.
-    """
-    return datetime.datetime.fromtimestamp(time.time()).strftime(fmt)
-
-def execution_to_file(data, k, x, path):
-    # Create folders
-    folder = os.path.join(path, str(k))
-    os.makedirs(folder, exist_ok=True)
-    # Create file.
-    file_path = os.path.join(folder, str(x) )
-    execution_file = open(file_path, 'w')
-    execution_file.write('')
-    execution_file.close()
-    execution_file = open(file_path, 'a')
-    for run_matrix in data:
-        execution_file.write('#--------------------------------------------------#\n')
-        for it in range(run_matrix.shape[1]):
-            state = run_matrix[:,it]
-            string_state = ''
-            for node in state:
-                string_state += str(int(node)) + ','
-            string_state = string_state[:-1]
-            execution_file.write(string_state + '\n')
-    execution_file.close()
 
 ####################################################################################################
 ####################################################################################################
