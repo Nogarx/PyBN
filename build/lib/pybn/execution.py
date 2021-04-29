@@ -47,8 +47,6 @@ def network_execution(connectivity, graph, configuration, summary_writer):
 
     # Since execution is for massive experiments we export data to files instead of returning the values.
     key = f"{connectivity:.2f}"
-    for observer in network.observers:
-        observer.pre_summary_writer()
     summary_writer.write_summary.remote(key, network.observers)
 
 def run_experiment(configuration):

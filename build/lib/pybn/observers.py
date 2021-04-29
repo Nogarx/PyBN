@@ -3,7 +3,6 @@ import time
 import os
 import numpy as np
 import random 
-import ray
 from abc import ABC, abstractmethod
 
 ####################################################################################################
@@ -33,18 +32,9 @@ class Observer(ABC):
     def summary(self):
         pass
 
-    @abstractmethod
-    def file_summary(self):
-        pass
-
-    @abstractmethod
-    def pre_summary_writer(self):
-        pass
-
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
-
 
 class EntropyObserver(Observer):
 
@@ -199,14 +189,9 @@ class EntropyObserver(Observer):
 
         return [('entropy', entropy_summary), ('complexity', complexity_summary)]
 
-    def pre_summary_writer(self):
-        self.process_table()
-        self.table_requires_update = False
-
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
-
 
 class FamiliesObserver(Observer):
 
@@ -264,16 +249,9 @@ class FamiliesObserver(Observer):
 
         return [('families', summary)]
 
-    def file_summary(self):
-        dummy = 1
-
-    def pre_summary_writer(self):
-        dummy = 1
-
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
-
 
 class StatesObserver(Observer):
 
@@ -310,6 +288,7 @@ class StatesObserver(Observer):
 
         return self.table[self.counter:, :]
 
+
     def summary(self):
         """
         Returns a string containing all the relevant data obtained by the observer.
@@ -322,11 +301,7 @@ class StatesObserver(Observer):
 
         return [('states', summary)]
 
-    def file_summary(self):
-        dummy = 1
 
-    def pre_summary_writer(self):
-        dummy = 1
 
 
 ####################################################################################################
