@@ -1,15 +1,20 @@
 import numpy as np
 import json
+import ray
+import pybn.observers as obs
 from tqdm import tqdm
+from pybn.networks import AbstractNetwork
+from pybn.summary import SummaryWritter
+
+from functools import partial
 from joblib import Parallel, delayed
-from pybn.functions import execution_to_file
-from pybn.abstract_network import AbstractNetwork
 
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
 
-def network_execution(k, configuration, x, graph=None):
+@ray.remote
+def network_execution(connectivity, graph, configuration):
     """
     Executes multiple times the boolean networks for several steps.
     Inputs: 
@@ -20,7 +25,7 @@ def network_execution(k, configuration, x, graph=None):
     # Initialize network.
     if graph is None:
         graph_function = configuration['graph']['function']
-        graph = graph_function(configuration['network']['nodes'], k, seed=configuration['graph']['seed'])
+        graph = graph_function(configuration['network']['nodes'], connectivity, seed=configuration['graph']['seed'])
     network_class = configuration['network']['class']
     network = network_class.from_configuration(graph, configuration)
 
@@ -29,23 +34,20 @@ def network_execution(k, configuration, x, graph=None):
     steps = configuration['execution']['steps'] 
     transient = configuration['execution']['transient']
 
-    execution_data = []
+    register_observers(network, configuration)
     for _ in range(runs):
         # Set initial state.
         network.set_initial_state()
-        data = np.zeros((network.nodes,steps))
         # Prewarm network.
         for _ in range(transient):
-            network.step()
+            network.step(observe=False)
         # Execute network.
         for i in range(steps):
-            network.step()
-            data[:,i] = np.copy(network.state) 
-        # Save run data.
-        execution_data.append(data)
+            network.step(observe=True)
 
     # Since execution is for massive experiments we export data to files instead of returning the values.
-    execution_to_file(execution_data, k, x, configuration['storage_path'])
+    #for observer in network.observers:
+    #    summary_writter.join_queue(observer.summary())
 
 
 def parallel_execution(configuration):
@@ -74,14 +76,52 @@ def parallel_execution(configuration):
     if not callable(graph_function):
         raise Exception("graph is not a valid PyBN graph function.")
 
+    # Initialize Ray.
+    ray.init()
+
+    # Initialize summary writter.
+    #summary_writter = SummaryWritter(configuration)
+
     # Iterate through all requested connectivity values.
     for k in tqdm(np.arange(k_start, k_end, k_step)):
+
+        #summary_writter.start_listening(str(k))
         graph = graph_function(nodes, k, seed=graph_seed) if (graph_seed is not None) else None
-        Parallel(n_jobs=jobs)( delayed(network_execution)(k, configuration, x, graph) for x in range(repetitions) ) 
+        for x in range(repetitions):
+            network_execution.remote(k, graph, configuration) 
+        #summary_writter.stop_listening()
+
+    # Shutdown Ray.
+    ray.shutdown()
 
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
+
+def register_observers(network, configuration):
+    observers = []
+    if configuration['observers']['entropy']:
+        observers.append(obs.EntropyObserver(
+                                    configuration['network']['nodes'], 
+                                    configuration['execution']['runs'], 
+                                    configuration['network']['basis']))
+    if configuration['observers']['family']:
+        observers.append(obs.FamiliesObserver(
+                                    configuration['network']['nodes'], 
+                                    configuration['execution']['steps'], 
+                                    configuration['execution']['runs'], 
+                                    configuration['network']['basis']))
+    if configuration['observers']['family']:
+        observers.append(obs.StatesObserver(
+                                    configuration['network']['nodes'], 
+                                    configuration['execution']['steps'], 
+                                    configuration['execution']['runs'], 
+                                    configuration['network']['basis']))
+
+    if len(observers) == 0:
+        raise Exception("No observer detected. Please register an observer in the configuration dictionary before continuing.")
+
+    network.attach_observers(observers)
 
 def new_configuration():
     """
@@ -92,6 +132,7 @@ def new_configuration():
         'network': {'class': None, 'nodes': 0, 'basis': 0, 'bias': 0.5, 'seed': None},
         'fuzzy': {'conjunction': lambda x,y : min(x,y), 'disjunction': lambda x,y : max(x,y), 'negation': lambda x : 1 - x},
         'graph': {'function': None, 'k_start': 0, 'k_end': 0, 'k_step': 0, 'seed': None},
+        'observers': {'entropy': 0, 'family': 0, 'states': 0},
         'execution': {'networks': 0, 'runs': 0, 'steps': 0, 'transient': 0, 'jobs': 1},
         'storage_path' : './'
     }
