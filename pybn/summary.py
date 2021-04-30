@@ -32,9 +32,10 @@ class SummaryWriter():
         """
         for file in os.listdir(self.directory_path):
             if file.endswith('.lock'):
-                os.remove(file)
+                file_path = os.path.join(self.directory_path, file)
+                os.remove(file_path)
 
-    def timestamp(self, fmt='%d\%m\%y_%H:%M:%S'):
+    def timestamp(self, fmt='%d\\%m\\%y_%H:%M:%S'):
         """
         Returns current timestamp.
         """
@@ -53,15 +54,6 @@ class SummaryWriter():
                     with open(file_path, 'a') as file:
                         # Write observation data to the last line.
                         file.write(observation[1])
-
-    def summary_debug(self):
-        file_path = os.path.join(self.directory_path, 'debug')
-        lock_path = file_path + '.lock'
-        with FileLock(lock_path):
-            with open(file_path, 'a') as file:
-                # Write observation data to the last line.
-                file.write('This is a test\n')
-
 
 ####################################################################################################
 ####################################################################################################
