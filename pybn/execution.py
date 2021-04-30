@@ -2,6 +2,7 @@ import numpy as np
 import json
 import ray
 import pybn.observers as obs
+import time
 from tqdm import tqdm
 from pybn.networks import AbstractNetwork
 from pybn.summary import SummaryWriter
@@ -37,10 +38,12 @@ def network_execution(connectivity, graph, configuration, summary_writer):
     register_observers(network, configuration)
     for _ in range(runs):
         # Set initial state.
-        network.set_initial_state()
+        network.set_initial_state(observe=False)
         # Prewarm network.
         for _ in range(transient):
             network.step(observe=False)
+        # Pass the last state to the observers.
+            network.update_observers()
         # Execute network.
         for i in range(steps):
             network.step(observe=True)
@@ -86,7 +89,11 @@ def run_experiment(configuration):
     # Iterate through all requested connectivity values.
     for k in tqdm(np.arange(k_start, k_end + 0.5 * k_step, k_step)):
         graph = graph_function(nodes, k, seed=graph_seed) if (graph_seed is not None) else None
-        ray.wait([network_execution.remote(k, graph, configuration, summary_writer) for _ in range(repetitions)])
+        ray.get([network_execution.remote(k, graph, configuration, summary_writer) for _ in range(repetitions)])
+
+
+    # Remove file's lock.
+    ray.get([summary_writer.remove_locks.remote()])
 
     # Shutdown Ray.
     ray.shutdown()
@@ -99,21 +106,19 @@ def register_observers(network, configuration):
     observers = []
     if configuration['observers']['entropy']:
         observers.append(obs.EntropyObserver(
-                                    configuration['network']['nodes'], 
-                                    configuration['execution']['runs'], 
-                                    configuration['network']['basis']))
+                                    nodes=configuration['network']['nodes'], 
+                                    runs=configuration['execution']['runs'], 
+                                    base=configuration['network']['basis']))
     if configuration['observers']['family']:
         observers.append(obs.FamiliesObserver(
-                                    configuration['network']['nodes'], 
-                                    configuration['execution']['steps'], 
-                                    configuration['execution']['runs'], 
-                                    configuration['network']['basis']))
-    if configuration['observers']['family']:
+                                    nodes=configuration['network']['nodes'], 
+                                    runs=configuration['execution']['runs']))
+    if configuration['observers']['states']:
         observers.append(obs.StatesObserver(
-                                    configuration['network']['nodes'], 
-                                    configuration['execution']['steps'], 
-                                    configuration['execution']['runs'], 
-                                    configuration['network']['basis']))
+                                    nodes=configuration['network']['nodes'], 
+                                    steps=configuration['execution']['steps'],
+                                    runs=configuration['execution']['runs'], 
+                                    base=configuration['network']['basis']))
 
     if len(observers) == 0:
         raise Exception("No observer detected. Please register an observer in the configuration dictionary before continuing.")
