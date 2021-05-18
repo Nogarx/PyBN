@@ -5,6 +5,7 @@ import numpy as np
 import random 
 import ray
 from abc import ABC, abstractmethod
+from pybn.functions import plogp
 
 ####################################################################################################
 ####################################################################################################
@@ -86,15 +87,12 @@ class EntropyObserver(Observer):
 
         return self.table / self.counter
 
-    def plogp(self, p):
-        return -p * np.log(p, where=(p!=0)) / np.log(self.base)
-
     def process_table(self):
         """
         Updates data table with current run entropy.
         """
         probabilities = self.get_probabilities()
-        run_entropy = self.plogp(probabilities)
+        run_entropy = plogp(probabilities, self.base)
         run_entropy = np.sum(run_entropy, axis=1)
         self.data[self.current_run] = run_entropy
         self.table_requires_update = False
@@ -167,7 +165,7 @@ class EntropyObserver(Observer):
 
         print(summary)
 
-    def file_summary(self):
+    def file_summary(self, per_node=False):
         """
         Returns a list of pair containing all the relevant data obtained by the observer. The first element of the pair is the data name.
         """
@@ -175,23 +173,29 @@ class EntropyObserver(Observer):
         entropy, nodes_entropy = self.entropy(std=True)
         complexity, nodes_complexity = self.complexity(std=True)
 
-        # Entropy
-        entropy_summary = f"{entropy[0]:.6f}" + '\n' + f"{entropy[1]:.6f}" + '\n'
-        for val in nodes_entropy[0]:
-            entropy_summary += f"{val:.6f}" + ','
-        entropy_summary = entropy_summary[:-1] + '\n'
-        for std in nodes_entropy[1]:
-            entropy_summary += f"{std:.6f}" + ','
-        entropy_summary = entropy_summary[:-1] + '\n'
+        if (per_node):
 
-        # Complexity
-        complexity_summary = f"{complexity[0]:.6f}" + '\n' + f"{complexity[1]:.6f}" + '\n'
-        for val in nodes_complexity[0]:
-            complexity_summary += f"{val:.6f}" + ','
-        complexity_summary = complexity_summary[:-1] + '\n'
-        for std in nodes_complexity[1]:
-            complexity_summary += f"{std:.6f}" + ','
-        complexity_summary = complexity_summary[:-1] + '\n'
+            # Entropy
+            entropy_summary = []
+            for i in range(len(nodes_entropy[0])):
+                entropy_summary.append( f'{nodes_entropy[0][i]:.6f},{nodes_entropy[1][i]:.6f},')
+            entropy_summary[-1] = entropy_summary[-1][:-1] + '\n'
+            entropy_summary = ''.join(entropy_summary)
+
+            # Complexity
+            complexity_summary = []
+            for i in range(len(nodes_complexity[0])):
+                complexity_summary.append( f'{nodes_complexity[0][i]:.6f},{nodes_complexity[1][i]:.6f},')
+            complexity_summary[-1] = complexity_summary[-1][:-1] + '\n'
+            complexity_summary = ''.join(complexity_summary)
+
+        else:
+
+            # Entropy
+            entropy_summary = f'{entropy[0]:.6f},{entropy[1]:.6f}\n'
+
+            # Complexity
+            complexity_summary = f'{complexity[0]:.6f},{complexity[1]:.6f}\n'
 
         return [('entropy', entropy_summary), ('complexity', complexity_summary)]
 
@@ -263,9 +267,6 @@ class FamiliesObserver(Observer):
 
         return self.table / (self.counter - 1)
 
-    def plogp(self, p):
-        return -p * np.log(p, where=(p!=0)) / np.log(self.base)
-
     def families(self):
         """
         Returns an array with the family transitions.
@@ -280,7 +281,7 @@ class FamiliesObserver(Observer):
         Updates data table with current run entropy.
         """
         probabilities = self.get_probabilities()
-        run_entropy = self.plogp(probabilities)
+        run_entropy = plogp(probabilities, self.base)
         run_entropy = np.sum(run_entropy, axis=1)
         self.data[self.current_run] = run_entropy
         self.table_requires_update = False
@@ -353,7 +354,7 @@ class FamiliesObserver(Observer):
 
         print(summary)
 
-    def file_summary(self):
+    def file_summary(self, per_node=False):
         """
         Returns a list of pair containing all the relevant data obtained by the observer. The first element of the pair is the data name.
         """
@@ -361,23 +362,29 @@ class FamiliesObserver(Observer):
         entropy, nodes_entropy = self.entropy(std=True)
         complexity, nodes_complexity = self.complexity(std=True)
 
-        # Entropy
-        entropy_summary = f"{entropy[0]:.6f}" + '\n' + f"{entropy[1]:.6f}" + '\n'
-        for val in nodes_entropy[0]:
-            entropy_summary += f"{val:.6f}" + ','
-        entropy_summary = entropy_summary[:-1] + '\n'
-        for std in nodes_entropy[1]:
-            entropy_summary += f"{std:.6f}" + ','
-        entropy_summary = entropy_summary[:-1] + '\n'
+        if (per_node):
 
-        # Complexity
-        complexity_summary = f"{complexity[0]:.6f}" + '\n' + f"{complexity[1]:.6f}" + '\n'
-        for val in nodes_complexity[0]:
-            complexity_summary += f"{val:.6f}" + ','
-        complexity_summary = complexity_summary[:-1] + '\n'
-        for std in nodes_complexity[1]:
-            complexity_summary += f"{std:.6f}" + ','
-        complexity_summary = complexity_summary[:-1] + '\n'
+            # Entropy
+            entropy_summary = []
+            for i in range(len(nodes_entropy[0])):
+                entropy_summary.append( f'{nodes_entropy[0][i]:.6f},{nodes_entropy[1][i]:.6f},')
+            entropy_summary[-1] = entropy_summary[-1][:-1] + '\n'
+            entropy_summary = ''.join(entropy_summary)
+
+            # Complexity
+            complexity_summary = []
+            for i in range(len(nodes_complexity[0])):
+                complexity_summary.append( f'{nodes_complexity[0][i]:.6f},{nodes_complexity[1][i]:.6f},')
+            complexity_summary[-1] = complexity_summary[-1][:-1] + '\n'
+            complexity_summary = ''.join(complexity_summary)
+
+        else:
+
+            # Entropy
+            entropy_summary = f'{entropy[0]:.6f},{entropy[1]:.6f}\n'
+
+            # Complexity
+            complexity_summary = f'{complexity[0]:.6f},{complexity[1]:.6f}\n'
 
         return [('family_entropy', entropy_summary), ('family_complexity', complexity_summary)]
 
