@@ -146,7 +146,7 @@ class BooleanNetwork(AbstractNetwork):
         """
         Create a Boolean Network from a configuration dictionary.
         """
-        return cls(configuration['network']['nodes'], graph, configuration['network']['bias'])
+        return cls(configuration['parameters']['nodes'], graph, configuration['parameters']['bias'])
 
     def create_function_evaluation(self, function_input, node_id):
         """
@@ -211,10 +211,10 @@ class FuzzyBooleanNetwork(AbstractNetwork):
         Create a Boolean Fuzzy Network from a configuration dictionary.
         """
         fuzzy_network = cls(
-            configuration['network']['nodes'], 
-            configuration['network']['basis'], 
+            configuration['parameters']['nodes'], 
+            configuration['parameters']['basis'], 
             graph,
-            configuration['network']['bias'])
+            configuration['parameters']['bias'])
         # Replace lambdas.
         conjunction = configuration['fuzzy']['conjunction']
         disjunction = configuration['fuzzy']['disjunction']
