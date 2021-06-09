@@ -1,6 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from pybn.functions import plogp
+from pybn.networks import FuzzyBooleanNetwork
 
 ####################################################################################################
 ####################################################################################################
@@ -65,10 +66,15 @@ class EntropyObserver(Observer):
         """
         Create a Entropy Observer from a configuration dictionary.
         """
-        return cls(
-            nodes=configuration['parameters']['nodes'], 
-            runs=configuration['execution']['samples'], 
-            base=configuration['parameters']['basis'])
+        if (configuration['network']['class'] == FuzzyBooleanNetwork):
+            return cls(
+                nodes=configuration['parameters']['nodes'], 
+                runs=configuration['execution']['samples'], 
+                base=configuration['parameters']['basis'])
+        else: 
+            return cls(
+                nodes=configuration['parameters']['nodes'], 
+                runs=configuration['execution']['samples'])
 
     def clear(self):
         """
@@ -176,7 +182,7 @@ class EntropyObserver(Observer):
 
         print(summary)
 
-    def file_summary(self, per_node=False):
+    def file_summary(self, per_node=False, precision=6):
         """
         Returns a list of pair containing all the relevant data obtained by the observer. The first element of the pair is the data name.
         """
@@ -189,24 +195,24 @@ class EntropyObserver(Observer):
             # Entropy
             entropy_summary = []
             for i in range(len(nodes_entropy[0])):
-                entropy_summary.append( f'{nodes_entropy[0][i]:.6f},{nodes_entropy[1][i]:.6f},')
+                entropy_summary.append( f'{nodes_entropy[0][i]:.{precision}f},{nodes_entropy[1][i]:.{precision}f},')
             entropy_summary[-1] = entropy_summary[-1][:-1] + '\n'
             entropy_summary = ''.join(entropy_summary)
 
             # Complexity
             complexity_summary = []
             for i in range(len(nodes_complexity[0])):
-                complexity_summary.append( f'{nodes_complexity[0][i]:.6f},{nodes_complexity[1][i]:.6f},')
+                complexity_summary.append( f'{nodes_complexity[0][i]:.{precision}f},{nodes_complexity[1][i]:.{precision}f},')
             complexity_summary[-1] = complexity_summary[-1][:-1] + '\n'
             complexity_summary = ''.join(complexity_summary)
 
         else:
 
             # Entropy
-            entropy_summary = f'{entropy[0]:.6f},{entropy[1]:.6f}\n'
+            entropy_summary = f'{entropy[0]:.{precision}f},{entropy[1]:.{precision}f}\n'
 
             # Complexity
-            complexity_summary = f'{complexity[0]:.6f},{complexity[1]:.6f}\n'
+            complexity_summary = f'{complexity[0]:.{precision}f},{complexity[1]:.{precision}f}\n'
 
         return [('entropy', entropy_summary), ('complexity', complexity_summary)]
 
@@ -406,7 +412,7 @@ class TransitionsObserver(Observer):
 
         print(summary)
 
-    def file_summary(self, per_node=False):
+    def file_summary(self, per_node=False, precision=6):
         """
         Returns a list of pair containing all the relevant data obtained by the observer. The first element of the pair is the data name.
         """
@@ -419,24 +425,24 @@ class TransitionsObserver(Observer):
             # Entropy
             entropy_summary = []
             for i in range(len(nodes_entropy[0])):
-                entropy_summary.append( f'{nodes_entropy[0][i]:.6f},{nodes_entropy[1][i]:.6f},')
+                entropy_summary.append( f'{nodes_entropy[0][i]:.{precision}f},{nodes_entropy[1][i]:.{precision}f},')
             entropy_summary[-1] = entropy_summary[-1][:-1] + '\n'
             entropy_summary = ''.join(entropy_summary)
 
             # Complexity
             complexity_summary = []
             for i in range(len(nodes_complexity[0])):
-                complexity_summary.append( f'{nodes_complexity[0][i]:.6f},{nodes_complexity[1][i]:.6f},')
+                complexity_summary.append( f'{nodes_complexity[0][i]:.{precision}f},{nodes_complexity[1][i]:.{precision}f},')
             complexity_summary[-1] = complexity_summary[-1][:-1] + '\n'
             complexity_summary = ''.join(complexity_summary)
 
         else:
 
             # Entropy
-            entropy_summary = f'{entropy[0]:.6f},{entropy[1]:.6f}\n'
+            entropy_summary = f'{entropy[0]:.{precision}f},{entropy[1]:.{precision}f}\n'
 
             # Complexity
-            complexity_summary = f'{complexity[0]:.6f},{complexity[1]:.6f}\n'
+            complexity_summary = f'{complexity[0]:.{precision}f},{complexity[1]:.{precision}f}\n'
 
         return [('transition_entropy', entropy_summary), ('transition_complexity', complexity_summary)]
 
@@ -603,7 +609,7 @@ class BinaryTransitionsObserver(Observer):
 
         print(summary)
 
-    def file_summary(self, per_node=False):
+    def file_summary(self, per_node=False, precision=6):
         """
         Returns a list of pair containing all the relevant data obtained by the observer. The first element of the pair is the data name.
         """
@@ -616,76 +622,24 @@ class BinaryTransitionsObserver(Observer):
             # Entropy
             entropy_summary = []
             for i in range(len(nodes_entropy[0])):
-                entropy_summary.append( f'{nodes_entropy[0][i]:.6f},{nodes_entropy[1][i]:.6f},')
+                entropy_summary.append( f'{nodes_entropy[0][i]:.{precision}f},{nodes_entropy[1][i]:.{precision}f},')
             entropy_summary[-1] = entropy_summary[-1][:-1] + '\n'
             entropy_summary = ''.join(entropy_summary)
 
             # Complexity
             complexity_summary = []
             for i in range(len(nodes_complexity[0])):
-                complexity_summary.append( f'{nodes_complexity[0][i]:.6f},{nodes_complexity[1][i]:.6f},')
+                complexity_summary.append( f'{nodes_complexity[0][i]:.{precision}f},{nodes_complexity[1][i]:.{precision}f},')
             complexity_summary[-1] = complexity_summary[-1][:-1] + '\n'
             complexity_summary = ''.join(complexity_summary)
 
         else:
 
             # Entropy
-            entropy_summary = f'{entropy[0]:.6f},{entropy[1]:.6f}\n'
+            entropy_summary = f'{entropy[0]:.{precision}f},{entropy[1]:.{precision}f}\n'
 
             # Complexity
-            complexity_summary = f'{complexity[0]:.6f},{complexity[1]:.6f}\n'
-
-        return [('transition_entropy', entropy_summary), ('transition_complexity', complexity_summary)]
-
-        # Entropy
-        summary = 'Families entropy:\t' + f"{entropy[0]:.3f}" + ' ± ' + f"{entropy[1]:.3f}" + '\n' + 'Nodes entropy:\n'
-        for i in range(self.nodes):
-            summary += f"{nodes_entropy[0][i]:.3f}" + ' ± ' + f"{nodes_entropy[1][i]:.3f}" + ',\t'
-            if ((i+1)%5 == 0):
-                summary += '\n'
-        summary = summary[:-1] + '\n\n'
-
-        # Complexity
-        summary += 'Families complexity:\t' + f"{complexity[0]:.3f}" + ' ± ' + f"{complexity[1]:.3f}" + '\n' + 'Nodes entropy:\n'
-        for i in range(self.nodes):
-            summary += f"{nodes_complexity[0][i]:.3f}" + ' ± ' + f"{nodes_complexity[1][i]:.3f}" + ',\t'
-            if ((i+1)%5 == 0):
-                summary += '\n'
-        summary = summary[:-1] + '\n'
-
-        print(summary)
-
-    def file_summary(self, per_node=False):
-        """
-        Returns a list of pair containing all the relevant data obtained by the observer. The first element of the pair is the data name.
-        """
-
-        entropy, nodes_entropy = self.entropy(std=True)
-        complexity, nodes_complexity = self.complexity(std=True)
-
-        if (per_node):
-
-            # Entropy
-            entropy_summary = []
-            for i in range(len(nodes_entropy[0])):
-                entropy_summary.append( f'{nodes_entropy[0][i]:.6f},{nodes_entropy[1][i]:.6f},')
-            entropy_summary[-1] = entropy_summary[-1][:-1] + '\n'
-            entropy_summary = ''.join(entropy_summary)
-
-            # Complexity
-            complexity_summary = []
-            for i in range(len(nodes_complexity[0])):
-                complexity_summary.append( f'{nodes_complexity[0][i]:.6f},{nodes_complexity[1][i]:.6f},')
-            complexity_summary[-1] = complexity_summary[-1][:-1] + '\n'
-            complexity_summary = ''.join(complexity_summary)
-
-        else:
-
-            # Entropy
-            entropy_summary = f'{entropy[0]:.6f},{entropy[1]:.6f}\n'
-
-            # Complexity
-            complexity_summary = f'{complexity[0]:.6f},{complexity[1]:.6f}\n'
+            complexity_summary = f'{complexity[0]:.{precision}f},{complexity[1]:.{precision}f}\n'
 
         return [('family_entropy', entropy_summary), ('family_complexity', complexity_summary)]
 
