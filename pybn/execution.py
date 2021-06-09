@@ -74,15 +74,15 @@ def run_experiment(configuration, execution_iterator, timer=False):
     ray.init()
 
     # Initialize summary writter.
-    summary_writer = SummaryWriter(configuration)
+    summary_writer = SummaryWriter.remote(configuration)
 
     # Iterate through all requested connectivity values.
     if timer:
         for _ in tqdm(len(execution_iterator)):
             # Update iterator and get values.
-            execution_iterator.Step()
-            values = execution_iterator.GetVariables()
-            stamp = execution_iterator.GetStamp()
+            execution_iterator.step()
+            values = execution_iterator.get_variables()
+            stamp = execution_iterator.get_stamp()
 
             # Overwrite configuration dictionary with iterator values.
             for key in values.keys():
@@ -100,10 +100,10 @@ def run_experiment(configuration, execution_iterator, timer=False):
             # Run networks
             ray.get([network_execution.remote(graph, configuration, stamp, summary_writer) for _ in range(networks)])
     else:
-        while(execution_iterator.Step()):
+        while(execution_iterator.step()):
             # Update iterator and get values.
-            values = execution_iterator.GetVariables()
-            stamp = execution_iterator.GetStamp()
+            values = execution_iterator.get_variables()
+            stamp = execution_iterator.get_stamp()
 
             # Overwrite configuration dictionary with iterator values.
             for key in values.keys():
@@ -121,6 +121,9 @@ def run_experiment(configuration, execution_iterator, timer=False):
             # Run networks
             ray.get([network_execution.remote(graph, configuration, stamp, summary_writer) for _ in range(networks)])
 
+    # Delete lock files.
+    ray.get([summary_writer.remove_locks.remote()])
+
     # Shutdown Ray.
     ray.shutdown()
 
@@ -137,6 +140,7 @@ class ExecutionIterator():
         self.first_step = True
         self.last_step = False
         self.count = -1
+        self.shape_tuple = None
 
     def __len__(self):
         if (self.count > 0):
@@ -144,18 +148,20 @@ class ExecutionIterator():
         else:
             return 0
 
-    def Clear(self):
+    def clear(self):
         self.variables = {}
         self.last_key = None
         self.first_step = True
         self.last_step = False
         self.count = -1
 
-    def Reset(self):
+    def reset(self):
+        self.first_step = True
+        self.last_step = False
         for key in self.variables.keys():
             self.variables[key][1] = 0
 
-    def RegisterVariable(self, name, values):
+    def register_variable(self, name, values):
         if (not len(values) > 0):
             raise Exception("Variable values are not iterable. Values must be a non-empty list, a range or a numpy arange")
         if ('graph' and 'graph_function' in self.variables):
@@ -170,7 +176,7 @@ class ExecutionIterator():
         else:
             self.count *= len(values)
 
-    def Step(self):
+    def step(self):
         if (not len(self.variables) > 0):
             raise Exception("Iterator is empty.")
         if (self.first_step):
@@ -189,7 +195,7 @@ class ExecutionIterator():
             else:
                 return True
 
-    def GetVariables(self):
+    def get_variables(self):
         if (not self.last_step):
             variables = {}
             for key in self.variables.keys():
@@ -198,7 +204,7 @@ class ExecutionIterator():
         else:
             return {}
 
-    def GetStamp(self):
+    def get_stamp(self):
         if (not self.last_step):
             stamp = []
             for key in self.variables.keys():
@@ -214,6 +220,38 @@ class ExecutionIterator():
             return stamp
         else:
             return ''
+
+    def get_stamp_list(self):
+        self.reset()
+        stamps_array = np.empty(self.shape(), dtype=object)
+        while self.step():
+            stamp = []
+            position = []
+            for key in self.variables.keys():
+                value = self.variables[key][0][self.variables[key][1]]
+                if (isinstance(value, (int, np.integer))):
+                    key_stamp = '[' + '_'.join([key,f"{value}"]) + ']'
+                elif (isinstance(value, (float, np.floating))):
+                    key_stamp = '[' + '_'.join([key,f"{value:.{self.precision}f}"]) + ']'
+                else: 
+                    key_stamp = '[' + '_'.join([key,str(self.variables[key][1])]) + ']'
+                stamp.append(key_stamp)
+                position.append(self.variables[key][1])
+            stamps_array[tuple(position)] = ''.join(stamp)
+        return stamps_array
+
+    def shape(self):
+        if (self.shape_tuple is None):
+            if (len(self.variables) > 0):
+                shape = []
+                for key in self.variables.keys():
+                    shape.append(len(self.variables[key][0]))
+                self.shape_tuple = tuple(shape)
+                return self.shape_tuple
+            else: 
+                None
+        else:
+            return self.shape_tuple
 
 ####################################################################################################
 ####################################################################################################
@@ -235,29 +273,12 @@ def new_configuration():
         'graph': {'function': None, 'seed': None},
         'fuzzy': {'conjunction': lambda x,y : min(x,y), 'disjunction': lambda x,y : max(x,y), 'negation': lambda x : 1 - x},
         'parameters': {'nodes': 0, 'basis': 0, 'bias': 0.5,'connectivity': 0, 'steps': 0, 'transient': 0},
+        'summary':{'per_node': False, 'precision': 6},
         'execution': {'networks': 0, 'samples': 0},
         'observers': [],
         'storage_path' : './'
     }
     return configuration
-
-def export_configuration_file(configuration, path):
-    """
-    Export configuration.
-    """
-    data = json.dumps(configuration)
-    with open(path, 'w') as file:
-        file.write(data)
-        print("Export successful.")
-
-def import_configuration_file(path):
-    """
-    Import configuration.
-    """
-    with open(path, "r") as file:
-        data = json.load(file)
-        print("Import successful.")
-    return data
 
 ####################################################################################################
 ####################################################################################################
