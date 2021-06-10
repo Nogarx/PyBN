@@ -22,7 +22,7 @@ def network_execution(graph, configuration, stamp, summary_writer):
     # Initialize network.
     if graph is None:
         graph_function = configuration['graph']['function']
-        graph = graph_function(configuration['parameters']['nodes'], configuration['parameters']['connectivity'], seed=configuration['graph']['seed'])
+        graph = graph_function(**configuration['parameters'])
     network_class = configuration['network']['class']
     network = network_class.from_configuration(graph, configuration)
 
@@ -58,14 +58,11 @@ def run_experiment(configuration, execution_iterator, timer=False):
 
     # Get execution configuration parameters.
     network_class = configuration['network']['class']
-    graph_function = configuration['graph']['function']
     networks = configuration['execution']['networks'] 
 
     # Check network and graph functions are valid.
     if not issubclass(network_class, AbstractNetwork):
         raise Exception("network_class is not a valid PyBN network class.")
-    if not callable(graph_function):
-        raise Exception("graph is not a valid PyBN graph function.")
     if len(configuration['observers']) == 0:
         raise Exception("No observer detected. Please register an observer in the configuration dictionary before continuing.")
 
@@ -272,7 +269,7 @@ def new_configuration():
         'network': {'class': None, 'seed': None},
         'graph': {'function': None, 'seed': None},
         'fuzzy': {'conjunction': lambda x,y : min(x,y), 'disjunction': lambda x,y : max(x,y), 'negation': lambda x : 1 - x},
-        'parameters': {'nodes': 0, 'basis': 0, 'bias': 0.5,'connectivity': 0, 'steps': 0, 'transient': 0},
+        'parameters': {'nodes': 0, 'k':0, 'w':0, 'base': 0, 'bias': 0.5, 'steps': 0, 'transient': 0, },
         'summary':{'per_node': False, 'precision': 6},
         'execution': {'networks': 0, 'samples': 0},
         'observers': [],

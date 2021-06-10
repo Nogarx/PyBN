@@ -11,12 +11,13 @@ class Observer(ABC):
 
     def __init__(self):
         self.observations = None
-        self.table = None
-        self.counter = None
-        self.current_run = None
         self.runs = None
         self.base = None
         self.nodes = None
+
+        self.table = None
+        self.counter = None
+        self.current_run = None
 
     @classmethod
     @abstractmethod
@@ -32,11 +33,15 @@ class Observer(ABC):
         pass
 
     @abstractmethod
-    def summary(self):
+    def reset(self):
         pass
 
     @abstractmethod
-    def file_summary(self):
+    def summary(self, precision=3):
+        pass
+
+    @abstractmethod
+    def file_summary(self, per_node=False, precision=6):
         pass
 
     @abstractmethod
@@ -47,18 +52,18 @@ class Observer(ABC):
 ####################################################################################################
 ####################################################################################################
 
-
 class EntropyObserver(Observer):
 
     def __init__(self, nodes=1, runs=1, base=2):
         self.observations = ['entropy', 'complexity']
-        self.table = np.zeros((nodes, base))
-        self.counter = 0
-        self.current_run = -1
         self.runs = runs
         self.base = base
         self.nodes = nodes
-        self.data = np.zeros((runs, nodes))
+
+        self.counter = 0
+        self.current_run = -1
+        self.table = np.zeros((self.nodes, self.base))
+        self.data = np.zeros((self.runs, self.nodes))
         self.table_requires_update = False
 
     @classmethod
@@ -70,7 +75,7 @@ class EntropyObserver(Observer):
             return cls(
                 nodes=configuration['parameters']['nodes'], 
                 runs=configuration['execution']['samples'], 
-                base=configuration['parameters']['basis'])
+                base=configuration['parameters']['base'])
         else: 
             return cls(
                 nodes=configuration['parameters']['nodes'], 
@@ -85,6 +90,16 @@ class EntropyObserver(Observer):
         self.table = np.zeros((self.nodes, self.base))
         self.current_run += 1
         self.counter = 0
+        if (self.current_run == self.runs):
+            self.runs += 1
+            self.data = np.append(self.data, np.zeros((1,self.nodes)), axis=0)
+
+    def reset(self):
+        self.table = np.zeros((self.nodes, self.base))
+        self.counter = 0
+        self.current_run = -1
+        self.data = np.zeros((self.runs, self.nodes))
+        self.table_requires_update = False
 
     def update(self, state):
         """
@@ -156,7 +171,7 @@ class EntropyObserver(Observer):
             nodes_complexity_std = 4 * nodes_entropy_std * (1 - nodes_entropy_std)
             return (complexity, complexity_std), (nodes_complexity, nodes_complexity_std)
 
-    def summary(self):
+    def summary(self, precision=3):
         """
         Returns a human-readable string containing all the relevant data obtained by the observer.
         """
@@ -165,17 +180,17 @@ class EntropyObserver(Observer):
         complexity, nodes_complexity = self.complexity(std=True)
 
         # Entropy
-        summary = 'Network entropy:\t' + f"{entropy[0]:.3f}" + ' ± ' + f"{entropy[1]:.3f}" + '\n' + 'Nodes entropy:\n'
+        summary = 'Network entropy:\t' + f"{entropy[0]:.{precision}f}" + ' ± ' + f"{entropy[1]:.{precision}f}" + '\n' + 'Nodes entropy:\n'
         for i in range(self.nodes):
-            summary += f"{nodes_entropy[0][i]:.3f}" + ' ± ' + f"{nodes_entropy[1][i]:.3f}" + ',\t'
+            summary += f"{nodes_entropy[0][i]:.{precision}f}" + ' ± ' + f"{nodes_entropy[1][i]:.{precision}f}" + ',\t'
             if ((i+1)%5 == 0):
                 summary += '\n'
         summary = summary[:-1] + '\n\n'
 
         # Complexity
-        summary += 'Network complexity:\t' + f"{complexity[0]:.3f}" + ' ± ' + f"{complexity[1]:.3f}" + '\n' + 'Nodes entropy:\n'
+        summary += 'Network complexity:\t' + f"{complexity[0]:.{precision}f}" + ' ± ' + f"{complexity[1]:.{precision}f}" + '\n' + 'Nodes entropy:\n'
         for i in range(self.nodes):
-            summary += f"{nodes_complexity[0][i]:.3f}" + ' ± ' + f"{nodes_complexity[1][i]:.3f}" + ',\t'
+            summary += f"{nodes_complexity[0][i]:.{precision}f}" + ' ± ' + f"{nodes_complexity[1][i]:.{precision}f}" + ',\t'
             if ((i+1)%5 == 0):
                 summary += '\n'
         summary = summary[:-1] + '\n'
@@ -214,7 +229,7 @@ class EntropyObserver(Observer):
             # Complexity
             complexity_summary = f'{complexity[0]:.{precision}f},{complexity[1]:.{precision}f}\n'
 
-        return [('entropy', entropy_summary), ('complexity', complexity_summary)]
+        return [(self.observations[0], entropy_summary), (self.observations[1], complexity_summary)]
 
     def pre_summary_writer(self):
         self.process_table()
@@ -228,14 +243,16 @@ class TransitionsObserver(Observer):
 
     def __init__(self, nodes=1, runs=1, transitions=False):
         self.observations = ['transition_entropy', 'transition_complexity']
+        self.nodes = nodes
+        self.runs = runs
         self.base = 3
-        self.table = np.zeros((nodes, self.base))
+        self.transitions = transitions
+
         self.counter = 0
         self.current_run = -1
-        self.nodes = nodes
-        self.data = np.zeros((runs, nodes))
+        self.table = np.zeros((self.nodes, self.base))
+        self.data = np.zeros((self.runs, self.nodes))
         self.table_requires_update = False
-        self.transitions = transitions
         if(self.transitions):
             self.transition_table = []
 
@@ -258,6 +275,18 @@ class TransitionsObserver(Observer):
         self.current_run += 1
         self.counter = 0
         self.previous_state = None
+        if(self.transitions):
+            self.transition_table = []
+        if (self.current_run == self.runs):
+            self.runs += 1
+            self.data = np.append(self.data, np.zeros((1,self.nodes)), axis=0)
+
+    def reset(self):
+        self.table = np.zeros((self.nodes, self.base))
+        self.counter = 0
+        self.current_run = -1
+        self.data = np.zeros((self.runs, self.nodes))
+        self.table_requires_update = False
         if(self.transitions):
             self.transition_table = []
 
@@ -386,7 +415,7 @@ class TransitionsObserver(Observer):
             nodes_complexity_std = 4 * nodes_entropy_std * (1 - nodes_entropy_std)
             return (complexity, complexity_std), (nodes_complexity, nodes_complexity_std)
 
-    def summary(self):
+    def summary(self, precision=3):
         """
         Returns a human-readable string containing all the relevant data obtained by the observer.
         """
@@ -395,17 +424,17 @@ class TransitionsObserver(Observer):
         complexity, nodes_complexity = self.complexity(std=True)
 
         # Entropy
-        summary = 'Transitions entropy:\t' + f"{entropy[0]:.3f}" + ' ± ' + f"{entropy[1]:.3f}" + '\n' + 'Nodes entropy:\n'
+        summary = 'Transitions entropy:\t' + f"{entropy[0]:.{precision}f}" + ' ± ' + f"{entropy[1]:.{precision}f}" + '\n' + 'Nodes entropy:\n'
         for i in range(self.nodes):
-            summary += f"{nodes_entropy[0][i]:.3f}" + ' ± ' + f"{nodes_entropy[1][i]:.3f}" + ',\t'
+            summary += f"{nodes_entropy[0][i]:.{precision}f}" + ' ± ' + f"{nodes_entropy[1][i]:.{precision}f}" + ',\t'
             if ((i+1)%5 == 0):
                 summary += '\n'
         summary = summary[:-1] + '\n\n'
 
         # Complexity
-        summary += 'Transitions complexity:\t' + f"{complexity[0]:.3f}" + ' ± ' + f"{complexity[1]:.3f}" + '\n' + 'Nodes entropy:\n'
+        summary += 'Transitions complexity:\t' + f"{complexity[0]:.{precision}f}" + ' ± ' + f"{complexity[1]:.{precision}f}" + '\n' + 'Nodes entropy:\n'
         for i in range(self.nodes):
-            summary += f"{nodes_complexity[0][i]:.3f}" + ' ± ' + f"{nodes_complexity[1][i]:.3f}" + ',\t'
+            summary += f"{nodes_complexity[0][i]:.{precision}f}" + ' ± ' + f"{nodes_complexity[1][i]:.{precision}f}" + ',\t'
             if ((i+1)%5 == 0):
                 summary += '\n'
         summary = summary[:-1] + '\n'
@@ -444,7 +473,7 @@ class TransitionsObserver(Observer):
             # Complexity
             complexity_summary = f'{complexity[0]:.{precision}f},{complexity[1]:.{precision}f}\n'
 
-        return [('transition_entropy', entropy_summary), ('transition_complexity', complexity_summary)]
+        return [(self.observations[0], entropy_summary), (self.observations[0], complexity_summary)]
 
     def pre_summary_writer(self):
         self.process_table()
@@ -454,19 +483,20 @@ class TransitionsObserver(Observer):
 ####################################################################################################
 ####################################################################################################
 
-
 class BinaryTransitionsObserver(Observer):
 
     def __init__(self, nodes=1, runs=1, transitions=False):
         self.observations = ['binary_transition_entropy', 'binary_transition_complexity']
+        self.nodes = nodes
+        self.runs = runs
         self.base = 2
-        self.table = np.zeros((nodes, self.base))
+        self.transitions = transitions
+        
         self.counter = 0
         self.current_run = -1
-        self.nodes = nodes
-        self.data = np.zeros((runs, nodes))
+        self.table = np.zeros((self.nodes, self.base))
+        self.data = np.zeros((self.runs, self.nodes))
         self.table_requires_update = False
-        self.transitions = transitions
         if(self.transitions):
             self.transition_table = []
 
@@ -489,6 +519,18 @@ class BinaryTransitionsObserver(Observer):
         self.current_run += 1
         self.counter = 0
         self.previous_state = None
+        if(self.transitions):
+            self.transition_table = []
+        if (self.current_run == self.runs):
+            self.runs += 1
+            self.data = np.append(self.data, np.zeros((1,self.nodes)), axis=0)
+    
+    def reset(self):
+        self.table = np.zeros((self.nodes, self.base))
+        self.counter = 0
+        self.current_run = -1
+        self.data = np.zeros((self.runs, self.nodes))
+        self.table_requires_update = False
         if(self.transitions):
             self.transition_table = []
 
@@ -522,7 +564,7 @@ class BinaryTransitionsObserver(Observer):
 
         return self.table / (self.counter - 1)
 
-    def transitions(self):
+    def get_transitions(self):
         """
         Returns an array with the transition transitions.
         """
@@ -583,7 +625,7 @@ class BinaryTransitionsObserver(Observer):
             nodes_complexity_std = 4 * nodes_entropy_std * (1 - nodes_entropy_std)
             return (complexity, complexity_std), (nodes_complexity, nodes_complexity_std)
 
-    def summary(self):
+    def summary(self, precision=3):
         """
         Returns a human-readable string containing all the relevant data obtained by the observer.
         """
@@ -592,17 +634,17 @@ class BinaryTransitionsObserver(Observer):
         complexity, nodes_complexity = self.complexity(std=True)
 
         # Entropy
-        summary = 'Transitions entropy:\t' + f"{entropy[0]:.3f}" + ' ± ' + f"{entropy[1]:.3f}" + '\n' + 'Nodes entropy:\n'
+        summary = 'Binary transitions entropy:\t' + f"{entropy[0]:.{precision}f}" + ' ± ' + f"{entropy[1]:.{precision}f}" + '\n' + 'Nodes entropy:\n'
         for i in range(self.nodes):
-            summary += f"{nodes_entropy[0][i]:.3f}" + ' ± ' + f"{nodes_entropy[1][i]:.3f}" + ',\t'
+            summary += f"{nodes_entropy[0][i]:.{precision}f}" + ' ± ' + f"{nodes_entropy[1][i]:.{precision}f}" + ',\t'
             if ((i+1)%5 == 0):
                 summary += '\n'
         summary = summary[:-1] + '\n\n'
 
         # Complexity
-        summary += 'Transitions complexity:\t' + f"{complexity[0]:.3f}" + ' ± ' + f"{complexity[1]:.3f}" + '\n' + 'Nodes entropy:\n'
+        summary += 'Binary transitions complexity:\t' + f"{complexity[0]:.{precision}f}" + ' ± ' + f"{complexity[1]:.{precision}f}" + '\n' + 'Nodes entropy:\n'
         for i in range(self.nodes):
-            summary += f"{nodes_complexity[0][i]:.3f}" + ' ± ' + f"{nodes_complexity[1][i]:.3f}" + ',\t'
+            summary += f"{nodes_complexity[0][i]:.{precision}f}" + ' ± ' + f"{nodes_complexity[1][i]:.{precision}f}" + ',\t'
             if ((i+1)%5 == 0):
                 summary += '\n'
         summary = summary[:-1] + '\n'
@@ -641,82 +683,11 @@ class BinaryTransitionsObserver(Observer):
             # Complexity
             complexity_summary = f'{complexity[0]:.{precision}f},{complexity[1]:.{precision}f}\n'
 
-        return [('family_entropy', entropy_summary), ('family_complexity', complexity_summary)]
+        return [(self.observations[0], entropy_summary), (self.observations[1], complexity_summary)]
 
     def pre_summary_writer(self):
         self.process_table()
         self.table_requires_update = False
-
-####################################################################################################
-####################################################################################################
-####################################################################################################
-
-
-class StatesObserver(Observer):
-
-    def __init__(self, nodes=1, steps=1, runs=1, base=2):
-        self.observations = ['states']
-        self.table = np.zeros((steps, nodes))
-        self.counter = 0
-        self.current_run = -1
-        self.base = base
-        self.nodes = nodes
-        self.steps = steps
-
-    @classmethod
-    def from_configuration(cls, configuration):
-        """
-        Create a Entropy Observer from a configuration dictionary.
-        """
-        return cls(
-            nodes=configuration['parameters']['nodes'], 
-            steps=configuration['parameters']['steps'], 
-            runs=configuration['execution']['samples'], 
-            base=configuration['parameters']['basis'])
-
-    def clear(self):
-        """
-        Clears the data of the observer.
-        """
-
-        self.table = np.zeros((self.steps, self.nodes))
-        self.counter = 0
-        self.current_run += 1
-        self.previous_state = None
-
-    def update(self, state):
-        """
-        Updates state table from an observed state.
-        """
-
-        self.table[self.counter, :] = state
-        self.counter += 1
-
-    def states(self):
-        """
-        Returns the states table.
-        """
-
-        return self.table[self.counter:, :]
-
-    def summary(self):
-        """
-        Returns a string containing all the relevant data obtained by the observer.
-        """
-
-        states = self.states()
-        summary = ''
-        for state in states:
-            summary += str(state) + '\n'
-
-        return [('states', summary)]
-
-    def file_summary(self):
-        dummy = 1
-
-    def pre_summary_writer(self):
-        dummy = 1
-
 
 ####################################################################################################
 ####################################################################################################
