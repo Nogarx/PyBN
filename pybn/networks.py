@@ -10,7 +10,7 @@ class AbstractNetwork(ABC):
     
     def __init__(self, nodes, graph, async_order=None):
         self.nodes = nodes
-        self.state = self.state = np.zeros(nodes, dtype=int)
+        self.state = np.zeros(nodes, dtype=int)
         self.bias = 0
         self.base = 2
         self.functions = []
@@ -127,12 +127,15 @@ class AbstractNetwork(ABC):
         for observer in observers:
             self.observers.append(observer)
 
-    def update_observers(self):
+    def update_observers(self, end_of_run=False):
         """
         Pass the current state of the network to all register observers.
         """
         for observer in self.observers:
-            observer.update(self.state)
+            if end_of_run:
+                observer.post_final_update()
+            else:
+                observer.update(self.state)
 
     def reset_observers(self):
         """

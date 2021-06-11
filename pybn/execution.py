@@ -1,7 +1,5 @@
 import numpy as np
-import json
 import ray
-import pybn.observers as obs
 from tqdm import tqdm
 from pybn.networks import AbstractNetwork
 from pybn.summary import SummaryWriter
@@ -33,21 +31,27 @@ def network_execution(graph, configuration, stamp, summary_writer):
 
     register_observers(network, configuration)
     for _ in range(samples):
+
         # Set initial state.
         network.set_initial_state(observe=False)
+
         # Prewarm network.
         for _ in range(transient):
             network.step(observe=False)
+
         # Pass the last state to the observers.
-            network.update_observers()
+        network.update_observers()
+
         # Execute network.
-        for i in range(steps):
+        for _ in range(steps):
             network.step(observe=True)
+            
+        # Signal the observers that the run concluded.
+        network.update_observers(end_of_run=True)
 
     # Since execution is for massive experiments we export data to files instead of returning the values.
-    for observer in network.observers:
-        observer.pre_summary_writer()
     summary_writer.write_summary.remote(stamp, network.observers)
+
 
 def run_experiment(configuration, execution_iterator, timer=False):
     """
